@@ -218,7 +218,8 @@
       if (name === "") {
         alert("이름을 입력해주세요!");
       } else {
-        window.location.href = "../main.html";
+        localStorage.setItem('username', name); // ✅ 이름 저장
+        window.location.href = "../window9/window9.html"; // ✅ 경로 수정
       }
     }
   });

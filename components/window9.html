@@ -96,78 +96,96 @@ const frame = document.getElementById('frame');
 const countdown = document.getElementById('countdown');
 const endingScreen = document.getElementById('ending-screen');
 
+// 🔹 사용자 이름 불러오기
+const username = localStorage.getItem('username') || "You";
+
 // 🔹 카메라 시작
 navigator.mediaDevices.getUserMedia({ video: true })
-  .then(stream => {
-    video.srcObject = stream;
-
-    // ✅ 실제로 카메라가 화면에 출력될 때 시작
-    video.onplaying = () => {
-      console.log("🎥 카메라 준비 완료! 3초 후 카운트다운 시작");
-      setTimeout(startCountdown, 3000);
-    };
-  })
-  .catch(err => {
-    alert('카메라 접근 권한이 필요합니다.');
-    console.error(err);
-  });
+  .then(stream => {
+    video.srcObject = stream;
+    video.onplaying = () => {
+      console.log("🎥 카메라 준비 완료! 3초 후 카운트다운 시작");
+      setTimeout(startCountdown, 3000);
+    };
+  })
+  .catch(err => {
+    alert('카메라 접근 권한이 필요합니다.');
+    console.error(err);
+  });
 
 // 🔹 카운트다운
 function startCountdown() {
-  let count = 3;
-  countdown.textContent = count;
-
-  const timer = setInterval(() => {
-    count--;
-    if (count > 0) {
-      countdown.textContent = count;
-    } else {
-      clearInterval(timer);
-      countdown.textContent = '';
-      takePhoto();
-    }
-  }, 1000);
+  let count = 3;
+  countdown.textContent = count;
+  const timer = setInterval(() => {
+    count--;
+    if (count > 0) {
+      countdown.textContent = count;
+    } else {
+      clearInterval(timer);
+      countdown.textContent = '';
+      takePhoto();
+    }
+  }, 1000);
 }
 
-// 🔹 사진 촬영 후 엔딩 전환
+// 🔹 사진 촬영 후 텍스트 추가 + 프린트 전송
 function takePhoto() {
-  const canvas = document.createElement('canvas');
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
 
-  const overlay = new Image();
-  overlay.src = frame.src;
-  
-  // ✅ 중요 수정: 오버레이 로드 후, 엔딩 화면 표시 함수 호출!
-  overlay.onload = () => {
-    ctx.drawImage(overlay, 0, 0, canvas.width, canvas.height);
-    showEnding(); // ⬅ 이 부분이 핵심!
-  };
+  // 1️⃣ 비디오 캡처
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  // 2️⃣ 오버레이 프레임 그리기
+  const overlay = new Image();
+  overlay.src = frame.src;
+
+  overlay.onload = () => {
+    ctx.drawImage(overlay, 0, 0, canvas.width, canvas.height);
+
+    // 3️⃣ 텍스트 추가 ("X is [이름]!")
+    ctx.font = `${canvas.width * 0.05}px 'DungGeunMo'`;
+    ctx.fillStyle = "white";
+    ctx.textAlign = "center";
+    ctx.fillText(`X is ${username}!`, canvas.width / 2, canvas.height * 0.9);
+
+    // 4️⃣ 이미지 전송
+    const imgData = canvas.toDataURL('image/png');
+    printImage(imgData);
+
+    // 5️⃣ 엔딩화면 전환
+    showEnding();
+  };
 }
 
-// 🔹 엔딩 화면 표시 후 3초 뒤 부모에게 메시지 보내기 (중복 제거)
+// 🔹 서버로 전송 (Node.js print server 필요)
+function printImage(imgData) {
+  fetch('http://localhost:3000/print', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ image: imgData })
+  })
+  .then(res => res.text())
+  .then(txt => console.log("🖨️ 인쇄 요청 완료:", txt))
+  .catch(err => console.error("⚠️ 인쇄 오류:", err));
+}
+
+// 🔹 엔딩 화면 표시
 function showEnding() {
-  endingScreen.style.display = 'flex';
-  console.log("🎬 엔딩 화면 표시됨 (3초 후 복귀)");
+  endingScreen.textContent = `X is ${username}!`;
+  endingScreen.style.display = 'flex';
+  console.log("🎬 엔딩 화면 표시됨");
 
-  // ✅ 카메라 종료 (리소스 정리)
-  if (video.srcObject) {
-    video.srcObject.getTracks().forEach(track => track.stop());
-  }
+  if (video.srcObject) video.srcObject.getTracks().forEach(track => track.stop());
 
-  // ✅ 부모에게 메시지 전달
-  setTimeout(() => {
-    console.log("📤 부모에게 복귀 메시지 전송: RETURN_TO_WINDOW1");
-    // index.html에 구현된 message 이벤트 리스너가 이 신호를 받습니다.
-    window.parent.postMessage("RETURN_TO_WINDOW1", "*");
-  }, 3000);
+  setTimeout(() => {
+    console.log("📤 부모에게 복귀 메시지 전송: RETURN_TO_WINDOW1");
+    window.parent.postMessage("RETURN_TO_WINDOW1", "*");
+  }, 3000);
 }
-
 </script>
-
-</script>
-
 </body>
 </html>
